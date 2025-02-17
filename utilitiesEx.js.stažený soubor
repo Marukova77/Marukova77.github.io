@@ -1,0 +1,176 @@
+/*
+ * Copyright (c) 2018 NEWPS.CZ s.r.o.
+ *
+ * Zhotovitel, NEWPS.CZ, nenese odpovednost za vady zpusobene
+ * neautorizovanym zasahem do zdrojoveho kodu.
+ *
+ */
+
+
+
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// This JS file contains some commonly used functions.
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// It is currently used in the following pages (isds_redesign2):
+// ***
+// src/templates/isds_redesign2/arp_error:
+// 502+3.html
+// https_redirect.html
+// ***
+// src/templates/isds_redesign2/templates:
+// koncept-show.ftl
+// login-redesign.ftl
+// login-servis.ftl
+// logout-redesign.ftl
+// register-ats-failure.ftl
+// register-ats.ftl
+// register-calc-login.ftl
+// register-calc-success.ftl
+// register-certificate-login.ftl
+// register-certificate-success.ftl
+// register-ext-ws-failure.ftl
+// register-ext-ws.ftl
+// register-gen-ats-failure.ftl
+// register-hssu-failure.ftl
+// register-hssu.ftl
+// register-sms-login.ftl
+// register-sms-success.ftl
+// reregister-password-login.ftl
+// reregister-password-success.ftl
+// select-user.ftl
+// unregister-calc-login.ftl
+// unregister-calc-success.ftl
+// unregister-certificate-login.ftl
+// unregister-certificate-success.ftl
+// unregister-sms-login.ftl
+// unregister-sms-success.ftl
+
+
+
+// *****************************************************************
+// getBootstrapBreakpoint
+// *****************************************************************
+// Gets an abbreviation representing the width of the client's display:
+// xs - extra small - portrait phones (less than 576px)
+// sm - small - landscape phones (between 576px and 768px)
+// md - medium - tablets (between 768px and 992px)
+// lg - large - desktops (between 992px and 1200px)
+// xl - extra large - large desktops (1200px and more)
+// *****************************************************************
+// Parameters:
+// (none)
+//
+// Returns:
+// Returns the client's media width (xs, sm, md, lg, xl).
+// *****************************************************************
+function getBootstrapBreakpoint() {
+    var w = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    return (
+        (w < 576) ? ("xs") : (
+                (w < 768) ? ("sm") : (
+                    (w < 992) ? ("md") : (
+                        (w < 1200) ? ("lg") : ("xl")
+                    )
+                )
+            )
+    );
+}
+
+
+
+// *****************************************************************
+// setCookie
+// *****************************************************************
+// Creates (or updates) a cookie for the current domain in the browser.
+// *****************************************************************
+// Parameters:
+// cookieName - Name of the cookie.
+// cookieValue - Value of the cookie.
+// expirationInDays - In how many days from now on, the cookie shall expire.
+// domain - Name of the domain to be included in the cookie. Or null if not.
+//
+// Returns:
+// (void)
+// *****************************************************************
+function setCookie(cookieName, cookieValue, expirationInDays, domain) {
+    //var now = new Date();
+    var expiryDate = new Date();
+    var timeToElapseInMillis = expiryDate.getTime() + (expirationInDays * 24 * 60 * 60 * 1000);
+    expiryDate.setTime(timeToElapseInMillis);
+    var cookieNamePart = cookieName + "=" + cookieValue;
+    var expiresPart = "Expires=" + expiryDate.toUTCString();
+    var pathPart = "Path=/";
+    var wholeCookie = cookieNamePart + "; " + expiresPart + "; " + pathPart;
+    if (domain != null) {
+        var domainPart = "Domain=" + domain;
+        wholeCookie += "; " + domainPart;
+    }
+    document.cookie = wholeCookie;
+}
+
+
+
+// *****************************************************************
+// getCookie
+// *****************************************************************
+// Tries to find a cookie with a given name and returns its value if found.
+// Note:
+// When reading cookies from the document.cookie property, all the cookies are stored in one string as follows:
+// cookieName1=cookieValue1; cookieName2=cookieValue2; cookieName3=cookieValue3;
+// (No attributes of the cookies can be seen except for their values.)
+// *****************************************************************
+// Parameters:
+// cookieName - Name of the cookie.
+//
+// Returns:
+// Returns the value of the requested cookie. If no cookie with the specified name is found, an empty string gets returned.
+// *****************************************************************
+function getCookie(cookieName) {
+    var cookieNameIntroPart = cookieName + "=";
+    var allCookiesDecoded = decodeURIComponent(document.cookie);
+    var cookiesArray = allCookiesDecoded.split(';');
+    for (var i = 0; i < cookiesArray.length; i++) {
+        var cookieItem = cookiesArray[i];
+        // Skip the leading spaces.
+        while (cookieItem.charAt(0) == ' ') {
+            cookieItem = cookieItem.substring(1);
+        }
+        if (cookieItem.indexOf(cookieNameIntroPart) == 0) {
+            // Extract the cookie value.
+            var cookieValue = cookieItem.substring(cookieNameIntroPart.length, cookieItem.length);
+            return cookieValue;
+        }
+    }
+    return "";
+}
+
+
+
+// *****************************************************************
+// getDomainName
+// *****************************************************************
+// Gets the name of the domain of the current URL in the browser (without the leading dot).
+// *****************************************************************
+// Parameters:
+// (none)
+//
+// Returns:
+// Returns the name of the current domain.
+// *****************************************************************
+function getDomainName() {
+    var domainName = null;
+    var hostName = window.location.hostname;
+    // Get rid of the hostname itself. Try to extract the domain name only.
+    var dotPosition = hostName.indexOf(".");
+    if ( (dotPosition >= 0) && (dotPosition + 1 < hostName.length) ) {
+        var domainNamePerhaps = hostName.substr(dotPosition + 1);
+        // Domains of the first level are forbidden. There must be at least one more dot in the domain name.
+        if (domainNamePerhaps.indexOf(".") >= 0) {
+            domainName = domainNamePerhaps;
+        }
+    }
+    return domainName;
+}
+
+
+

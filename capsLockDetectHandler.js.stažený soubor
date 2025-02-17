@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2023 NEWPS.CZ s.r.o.
+ *
+ * Zhotovitel, NEWPS.CZ, nenese odpovednost za vady zpusobene
+ * neautorizovanym zasahem do zdrojoveho kodu.
+ *
+ */
+
+const HIDING_CLASS = "d-none";
+const MESSAGE = "warn.capslock.psw.change";
+const MESSAGE_ELEMENT_ID = MESSAGE.replaceAll(".", "-");
+
+const OLD_PASSWORD_ELEMENT = document.getElementById('Ecom_Password');
+const NEW_PASSWORD_1_ELEMENT = document.getElementById('NewPassword1');
+const NEW_PASSWORD_2_ELEMENT = document.getElementById('NewPassword2');
+const ELEMENTS = [OLD_PASSWORD_ELEMENT, NEW_PASSWORD_1_ELEMENT, NEW_PASSWORD_2_ELEMENT];
+
+/**
+ * Create event listeners for pages:
+ * - reregister-password-login.ftl
+ */
+for (let i = 0; i < ELEMENTS.length; i++) {
+    attachEventListenersToElement(ELEMENTS[i], getMessageElement(i));
+}
+
+/**
+ * Attaches event listeners to inputElement for capslock detection.
+ * @param {HTMLElement} inputElement
+ * @param {*} warningMessageElement
+ */
+function attachEventListenersToElement(inputElement, warningMessageElement) {
+    if (inputElement != null) {
+        // Shows warning message when user types on keyboard with CapsLock enabled.
+        inputElement.addEventListener("keydown", e => resolveCapsLockClick(e, warningMessageElement));
+        inputElement.addEventListener("keyup", e => resolveCapsLockClick(e, warningMessageElement));
+        // Hides warning message when input field loses focus.
+        inputElement.addEventListener("blur", () => {
+            let hideOnBlur = inputElement.getAttribute('data-capslock-hide-on-blur');
+
+            if (hideOnBlur === null || hideOnBlur === 'true') {
+                hideCapsLockWarning(warningMessageElement);
+            }
+        });
+    }
+}
+
+/**
+ * Shows/hides warning message when capslock is enabled.
+ * @param {KeyboardEvent} event listener
+ * @param {HTMLElement} warningMessageElement warning message
+ */
+function resolveCapsLockClick(event, warningMessageElement) {
+    if (event.getModifierState) {
+        if (event.getModifierState("CapsLock")) {
+            showCapsLockWarning(warningMessageElement);
+        } else {
+            hideCapsLockWarning(warningMessageElement);
+        }
+    }
+}
+
+function showCapsLockWarning(element) {
+    element.classList.add("text-danger");
+    element.classList.add("capslock-warning");
+    element.classList.remove(HIDING_CLASS);
+}
+
+function hideCapsLockWarning(element) {
+    element.classList.add(HIDING_CLASS);
+}
+
+/**
+ * Returns reference to html tag containing warning message by ID including inputPosition i.e. #warn-capslock-psw-change0
+ * @param inputPosition - suffix for element identification
+ */
+function getMessageElement(inputPosition) {
+    if (typeof inputPosition === 'undefined' || inputPosition == null) {
+        inputPosition = "";
+    }
+    return document.getElementById(MESSAGE_ELEMENT_ID + inputPosition);
+}

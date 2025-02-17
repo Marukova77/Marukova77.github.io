@@ -1,0 +1,306 @@
+/*
+ * Copyright (c) 2011 Novell Professional Services.
+ *
+ * Zhotovitel, Novell Professional Services, nenese odpovednost za vady zpusobene
+ * neautorizovanym zasahem do zdrojoveho kodu.
+ */
+
+
+
+// Used as a class to enable/disable the "Send SMS" button.
+const SmsClassPartToDisable = " sms-disabled";
+const SmsClassPartToEnable = " sms-enabled";
+
+const SmsButtonElement = document.getElementById("sms_button");
+const SmsButtonTextElement = document.getElementById("sms_button_text");
+const SmsEcomUserIdElement = document.getElementById("Ecom_User_ID");
+const SmsEcomPasswordElement = document.getElementById("Ecom_Password");
+const SmsEcomTelephoneElement = document.getElementById("Ecom_Telephone");
+
+const CurrentUri = window.location.href;
+const LangSuffix = "&lang=";
+
+const CzechAlertMessages = [
+    "Uživatelské jméno a heslo musí být vyplněné!",
+    "Heslo musí být vyplněné!",
+    "Telefonní číslo musí být zadané!",
+    "Nesprávné zadání hesla.",
+    "Nesprávné zadání původního hesla.",
+    "Jednorázový kód odeslán."
+];
+
+// TODO překlad
+const EnglishAlertMessages = [
+    "Uživatelské jméno a heslo musí být vyplněné!",
+    "Heslo musí být vyplněné!",
+    "Telefonní číslo musí být zadané!",
+    "Nesprávné zadání hesla.",
+    "Nesprávné zadání původního hesla.",
+    "Jednorázový kód odeslán."
+];
+
+function preventDefault(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    } else {
+        window.event.returnValue = false;
+    }
+}
+
+function smsClick(e, form, formAction) {
+
+    // Do NOT allow clicking on the button if disabled.
+    // ma se zobrazit hlaska v alert
+    // if (SmsButtonElement.disabled) {
+    //     preventDefault(e);
+    //     return;
+    // }
+
+    disableSmsButton();
+
+    if (formAction == null) {
+        formAction = "processLogin";
+    }
+    let xmlhttp = new XMLHttpRequest(); // code for IE7+, Firefox, Chrome, Opera, Safari
+    if (!window.XMLHttpRequest) {
+        xmlhttp = new ActiveXObject("Microsoft.XMLHTTP"); // code for IE6, IE5
+    }
+
+    let username, password;
+    if (formAction === "processLogin" || formAction === "verifySms") {
+        username = SmsEcomUserIdElement.value;
+    }
+    password = SmsEcomPasswordElement.value;
+
+    let alertMessages = getAlertMessages();
+
+    if (formAction === "processLogin") {
+        if (username === "" || password === "") {
+            alert(alertMessages[0]);
+            if (username === "") {
+                SmsEcomUserIdElement.focus();
+            } else if (password === "") {
+                SmsEcomPasswordElement.focus();
+            }
+            preventDefault(e);
+            //enableSmsButton();
+            disableSmsButton();
+            return;
+        }
+    } else {
+        if (password === "") {
+            alert(alertMessages[1]);
+            SmsEcomPasswordElement.focus();
+            preventDefault(e);
+            //enableSmsButton();
+            disableSmsButton();
+            return;
+        }
+    }
+
+    //synchronni pozadavek
+    xmlhttp.open("POST", formAction + "?t=" + Math.random(), false);
+    xmlhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    let data = "sms=Yes";
+    if (form.atsId) {
+        let atsId = form.atsId.value;
+        data += "&atsId=" + encodeURIComponent(atsId);
+    } else {
+        let uri = form.uri.value;
+        data += "&uri=" + encodeURIComponent(uri);
+    }
+
+    if (form.type) {
+        let type = form.type.value;
+        data += "&type=" + encodeURIComponent(type);
+    }
+
+    if (formAction === "processLogin" || formAction === "verifySms") {
+        data += "&Ecom_User_ID=" + encodeURIComponent(username);
+    } else {
+        if (formAction === "registerSms") {
+            let telephone = SmsEcomTelephoneElement.value;
+            if (telephone === "") {
+                alert(alertMessages[2]);
+                SmsEcomTelephoneElement.focus();
+                preventDefault(e);
+                return;
+            }
+            data += "&Ecom_Telephone=" + encodeURIComponent(telephone);
+        }
+    }
+    xmlhttp.send(data + "&Ecom_Password=" + encodeURIComponent(password));
+
+    let responseDocument = new DOMParser().parseFromString(xmlhttp.responseText, 'text/html');
+
+    let changePasswordBadPassword = true;   // TODO replace this with form id!
+    let errorElement = responseDocument.querySelector("p.text-danger[messagePriority='2']");
+    if (errorElement === null) {
+        changePasswordBadPassword = false;
+        errorElement = responseDocument.querySelector("div.error");
+    }
+
+    if (errorElement !== null) {
+        let result;
+        let canContinue = true;
+        if (changePasswordBadPassword) {
+            if (formAction === "verifySms") {
+                result = "<p class=\"text-danger\">" + alertMessages[3] + "</p>";
+            } else {
+                result = "<p class=\"text-danger\">" + alertMessages[4] + "</p>";
+            }
+            SmsEcomPasswordElement.value = "";
+            SmsEcomPasswordElement.focus();
+            canContinue = false;
+        } else {
+            result = errorElement.innerHTML.trim();
+            result = result.replace("<br/>", "\n");
+
+            if (result.indexOf(alertMessages[5]) === -1) {
+
+                SmsEcomPasswordElement.value = "";
+                SmsEcomPasswordElement.focus();
+
+                // clear user id field only if it was set by the user:
+                if (SmsEcomUserIdElement && SmsEcomUserIdElement.type !== "hidden") {
+                    SmsEcomUserIdElement.focus();
+                    SmsEcomUserIdElement.value = "";
+                }
+
+                if (window.validateLogin) {
+                    validateLogin();
+                } else if (window.checkPasswords) {
+                    password = getPasswordElement();
+                    checkPasswords(password);
+                }
+
+                canContinue = false;
+            } else {
+                if (window.removeAlert) {
+                    const PASSWORD_ALERT_MESSAGE_PRIORITY = 2;
+                    const CPEOldPasswordAlertsId = "errorsAndWarnings0";
+                    removeAlert(CPEOldPasswordAlertsId, PASSWORD_ALERT_MESSAGE_PRIORITY);
+                }
+            }
+        }
+        // alert(xmlhttp.responseText);
+
+        const list = document.getElementsByTagName("div");
+        for (let i = 0; i < list.length; i++) {
+            if (list[i].className === "error") {
+                list[i].innerHTML = result;
+            }
+        }
+
+        // When SMS is sent, credentials are correct, hide all previous errors.
+        if (result.includes("Jednorázový kód odeslán")) {
+            var errorWrapper = document.getElementById("errorsAndWarnings0");
+            if (!errorWrapper) {
+                errorWrapper = document.getElementById("errorsAndWarnings");
+            }
+            if (errorWrapper) {
+                var errorElements = errorWrapper.getElementsByTagName("p");
+                if (errorElements.length !== 0) {
+                    for (let i = 0; i < errorElements.length; i++) {
+                        if (errorElements[i].className === "text-danger" || errorElements[i].className === "psw-error-msg-span") {
+                            errorElements[i].className += " d-none";
+                        }
+                    }
+                }
+                errorElements = errorWrapper.getElementsByTagName("span");
+                if (errorElements.length !== 0) {
+                    for (let i = 0; i < errorElements.length; i++) {
+                        if (errorElements[i].className === "text-danger" || errorElements[i].className === "psw-error-msg-span") {
+                            errorElements[i].className += " d-none";
+                        }
+                    }
+                }
+            } else {
+                console.info("wrapper not found");
+            }
+        }
+
+        if (canContinue) {
+            document.getElementById("Ecom_Totp").focus();
+        }
+
+        preventDefault(e);
+    }
+    else {
+        //alert(result);
+    }
+
+    enableSmsButton();
+}
+
+
+
+function getAlertMessages() {
+    let currentLanguage = !CurrentUri.includes(LangSuffix) ? "cs" : CurrentUri.slice(-2);
+    return currentLanguage === "en" ? EnglishAlertMessages : CzechAlertMessages;
+}
+
+
+
+function disableSmsButton() {
+    disableHtmlElement(SmsButtonElement, SmsClassPartToDisable, SmsClassPartToEnable);
+    SmsButtonElement.disabled = true;
+    if (SmsButtonTextElement !== null) {
+        disableHtmlElement(SmsButtonTextElement, SmsClassPartToDisable, SmsClassPartToEnable);
+        disableHtmlElement(SmsButtonTextElement.parentNode, SmsClassPartToDisable, SmsClassPartToEnable);
+    }
+}
+
+
+
+function enableSmsButton() {
+    enableHtmlElement(SmsButtonElement, SmsClassPartToDisable, SmsClassPartToEnable);
+    SmsButtonElement.disabled = false;
+    if (SmsButtonTextElement !== null) {
+        enableHtmlElement(SmsButtonTextElement, SmsClassPartToDisable, SmsClassPartToEnable);
+        enableHtmlElement(SmsButtonTextElement.parentNode, SmsClassPartToDisable, SmsClassPartToEnable);
+    }
+}
+
+
+
+// disabledCssClass - expecting one SPACE character before the CSS class name, e.g. " sms-disabled".
+// enabledCssClass - expecting one SPACE character before the CSS class name, e.g. " sms-enabled".
+// ***
+// At least one of the disabled/enabled-CssClass params need to be passed.
+// If the other parameter is to be ignored, pass an empty string or null.
+function enableHtmlElement(element, disabledCssClass, enabledCssClass) {
+    if ( (disabledCssClass) && (disabledCssClass.length > 0) ) {
+        if (element.className.indexOf(disabledCssClass) >= 0) {
+            element.className = element.className.replace(disabledCssClass, "");
+        }
+    }
+    if ( (enabledCssClass) && (enabledCssClass.length > 0) ) {
+        if (element.className.indexOf(enabledCssClass) < 0) {
+            element.className += enabledCssClass;
+        }
+    }
+}
+
+
+
+// disabledCssClass - expecting one SPACE character before the CSS class name, e.g. " sms-disabled".
+// enabledCssClass - expecting one SPACE character before the CSS class name, e.g. " sms-enabled".
+// ***
+// At least one of the disabled/enabled-CssClass params need to be passed.
+// If the other parameter is to be ignored, pass an empty string or null.
+function disableHtmlElement(element, disabledCssClass, enabledCssClass) {
+    if ( (disabledCssClass) && (disabledCssClass.length > 0) ) {
+        if (element.className.indexOf(disabledCssClass) < 0) {
+            element.className += disabledCssClass;
+        }
+    }
+    if ( (enabledCssClass) && (enabledCssClass.length > 0) ) {
+        if (element.className.indexOf(enabledCssClass) >= 0) {
+            element.className = element.className.replace(enabledCssClass, "");
+        }
+    }
+}
+
+
+

@@ -1,0 +1,38 @@
+/*
+ * Copyright (c) 2023 NEWPS.CZ s.r.o.
+ *
+ * Zhotovitel, NEWPS.CZ, nenese odpovednost za vady zpusobene
+ * neautorizovanym zasahem do zdrojoveho kodu.
+ *
+ */
+
+const BUTTON = document.getElementById("change-language-btn");
+const ANCHOR = document.getElementById("change-language-a");
+const CURRENT_URI = window.location.href;
+const LANG_SUFFIX = "&lang=";
+const LANG_CODES = ["cs", "en"];
+const CURRENT_LANGUAGE = resolveLanguage(CURRENT_URI.slice(-2))
+
+if (BUTTON !== null) BUTTON.onclick = () => redirect();
+
+if (ANCHOR !== null) ANCHOR.onclick = () => redirect();
+
+function redirect() {
+    if (CURRENT_URI.includes(LANG_SUFFIX)) {
+        window.location.href = CURRENT_URI.slice(0, -2) + CURRENT_LANGUAGE;
+        return false;
+    } else {
+        window.location.href = CURRENT_URI + LANG_SUFFIX + LANG_CODES[0];
+        return false;
+    }
+}
+
+function resolveLanguage(currentLang) {
+    switch (currentLang) {
+        case "cs":
+            return LANG_CODES[1];
+        case "en":
+        default:
+            return LANG_CODES[0];
+    }
+}

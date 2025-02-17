@@ -1,0 +1,85 @@
+/*
+ * Copyright (c) 2021 NEWPS.CZ s.r.o.
+ *
+ * Zhotovitel, NEWPS.CZ, nenese odpovednost za vady zpusobene
+ * neautorizovanym zasahem do zdrojoveho kodu.
+ *
+ */
+
+
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// This JS file is used to handle certificate button.
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// This currently applies to login-redesign.ftl and login-servis.ftl pages only.
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Dependencies:
+// (i) utilitiesEx.js
+
+var checkBoxDoNotDispAnyMoreIdPrefix = "checkboxDoNotDispAnyMore";
+var buttonLoginWithCertificateIdPrefix = "buttonLoginWithCertificate";
+
+var cookieNameDoNotDispAnyMoreLoginWithCert = "ISDSgoCert";
+var cookieValueDoNotDispAnyMoreLoginWithCert = "1";
+var cookieExpiryInDaysDoNotDispAnyMoreLoginWithCert = 5 * 365;
+
+if (document.getElementById(buttonLoginWithCertificateIdPrefix) != null) {
+    window.addEventListener("load", registerClickEventToLoginWithCertificateButton, false);
+}
+
+// *****************************************************************
+// registerClickEventToLoginWithCertificateButton
+// *****************************************************************
+// Adds click event to the "Login with certificate" button.
+// *****************************************************************
+// Parameters:
+// (none)
+//
+// Returns:
+// (void)
+// *****************************************************************
+function registerClickEventToLoginWithCertificateButton() {
+    // Add an event listener to the button.
+    var buttonObject = document.getElementById(buttonLoginWithCertificateIdPrefix);
+    buttonObject.addEventListener("click", buttonLoginWithCertificateOnClick, false);
+    // Function to use in the listener.
+    function buttonLoginWithCertificateOnClick(evt) {
+        var checkboxObject = document.getElementById(checkBoxDoNotDispAnyMoreIdPrefix);
+        // Check the state of the checkbox.
+        if (checkboxObject != null) {
+            // Set a cookie if necessary.
+            if (checkboxObject.checked) {
+                // OK. Set up the cookie.
+                var cookieName = cookieNameDoNotDispAnyMoreLoginWithCert;
+                var cookieValue = cookieValueDoNotDispAnyMoreLoginWithCert;
+                var expiryInDays = cookieExpiryInDaysDoNotDispAnyMoreLoginWithCert;
+                // Use the domain parameter.
+                // Or else the cookie won't be visible across domains such as www.mojedatovaschranka.cz and cert.mojedatovaschranka.cz.
+                var domainName = getDomainName();
+                var domainNameAdjusted = null;
+                if (domainName != null) {
+                    domainNameAdjusted = "." + domainName;
+                }
+                setCookie(cookieName, cookieValue, expiryInDays, domainNameAdjusted);
+            }
+        }
+        // Do navigate.
+        if (buttonObject != null) {
+            // Navigate.
+            var hyperlinkLocation = buttonObject.getAttribute("hyperlinkLocation");
+            if ( (hyperlinkLocation != null) && (hyperlinkLocation.length > 0) && (hyperlinkLocation != "#") ) {
+                window.location = hyperlinkLocation;
+                //document.location.assign(hyperlinkLocation);
+                if (evt.preventDefault) {
+                    evt.preventDefault();
+                }
+                if (evt.stopPropagation) {
+                    evt.stopPropagation();
+                }
+                return false;
+            }
+        }
+        return true;
+    }
+}

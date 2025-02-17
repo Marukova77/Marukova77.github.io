@@ -1,0 +1,528 @@
+/*
+ * Copyright (c) 2018 NEWPS.CZ s.r.o.
+ *
+ * Zhotovitel, NEWPS.CZ, nenese odpovednost za vady zpusobene
+ * neautorizovanym zasahem do zdrojoveho kodu.
+ *
+ */
+
+
+
+// Constants.
+const LOWERCASE_LETTERS = ' 1234567890-=qwertyuiop[] asdfghjkl  zxcvbnm,.  ';
+const UPPERCASE_LETTERS = '~!@#$% &*()_+QWERTYUIOP{}|ASDFGHJKL: ZXCVBNM  ? ';
+
+const Row3CapsLock = document.getElementById('row3CapsLock');
+const Row4ShiftLeft = document.getElementById('row4ShiftLeft');
+const Row4ShiftRight = document.getElementById('row4ShiftRight');
+const FormElement = document.getElementById("IDPLogin");
+const KeyboardElement = document.getElementById('keyboard');
+
+const BrowserName = detectBrowser();
+const ItsFirefox = BrowserName === "Firefox";
+
+
+// State variables.
+let clickedShift = false;
+let clickedCapsLock = false;
+let visibility = false;
+
+
+
+// position - Assume there is just one clickable icon to show the keyboard (such as in the login form, but also for registering SMS, for example), or three of them (form providing for password change).
+//            null - Expect just one keyboard icon element with id="keyboard1" (in case of the login form, with a suffix, e.g. keyboard1BM).
+//            0, 1, 2 - There are three clickable keyboard icon elements (when changing the password - for the old password, for the new password, for repeating the new password).
+//                      Id's of the elements are keyboard1, keyboard2, keyboard3.
+// clickObj - Clickable keyboard icon. This shall force the keyboard to show up relatively close to the click point.
+function changeKeyboardVisibility(position, clickObj) {
+    visibility = !visibility;
+
+    const mainKeyboardDiv = document.getElementById('keyboardMain');
+
+    if (visibility) {
+        var size = Math.floor(Math.random() * 11 + 24);
+        // If browser is firefox and position is not null (reregister password), don't make keys larger than 30px (acts differently).
+        if (ItsFirefox && size > 30) {
+            if (null != position) {
+                size = 30;
+            }
+        }
+        randomPosition(size);
+        checkRadioElements(position);
+        mainKeyboardDiv.className = 'keyboardVisible';
+    } else {
+        mainKeyboardDiv.className = 'keyboardInvisible';
+    }
+
+    moveKeyboardDiv(mainKeyboardDiv, clickObj);
+
+    /* attach event to a list of elements */
+    const pageElementIds = [
+        'radioDiv0',
+        'radioDiv1',
+        'radioDiv2'
+    ];
+
+    for (let i = 0; i < pageElementIds.length; i++) {
+        const vElement = document.getElementById(pageElementIds[i]);
+        if (vElement != null) {
+            if (visibility) {
+                vElement.className = 'radioVisible';
+            } else {
+                vElement.className = 'radioInvisible';
+            }
+        }
+    }
+}
+
+
+
+// ****************************************************
+// moveKeyboardDiv
+// ****************************************************
+// Moves the keyboard div close to the click point.
+// ****************************************************
+// Parameters:
+// keybDiv - Div element with the keyboard.
+// visibility - True :-: the keyboard is in the "visible" state, false :-: the keyboard is in the "invisible" state.
+// clickObj - The object used to toggle the keyboard's visibility. Or null if not important.
+//
+// Returns:
+// (void)
+// ****************************************************
+function moveKeyboardDiv(keybDiv, clickObj) {
+
+    if (visibility) {
+        if ( ! (null == clickObj) ) {
+            // We do know which element caused the keyboard visibility change.
+            // ***
+            // Get coords of the object that has been clicked on.
+            const rectClickObj = clickObj.getBoundingClientRect();
+            // IE does not support the "x" and "y" properties within the object resulting from getBoundingClientRect().
+            //var xClick = rectClickObj.x;
+            //var yClick = rectClickObj.y;
+            let xClick = rectClickObj.left;
+            let yClick = rectClickObj.top;
+            // Get size of the screen (viewport).
+            const rectViewport = document.documentElement.getBoundingClientRect();
+            let widthView = rectViewport.width;
+            // Find first positioned (not static) ancestor of the keyboard div element.
+            let xAnces = 0;
+            let yAnces = 0;
+            for (let parElem = keybDiv.parentElement; parElem != null; ) {
+                let parElemStyle = window.getComputedStyle(parElem, null);
+                let parElemPosition = parElemStyle.getPropertyValue("position");
+                if (parElemPosition !== "static") {
+                    const rectKeybAnces = parElem.getBoundingClientRect();
+                    //xAnces = rectKeybAnces.x;
+                    //yAnces = rectKeybAnces.y;
+                    xAnces = rectKeybAnces.left;
+                    yAnces = rectKeybAnces.top;
+                    break;
+                }
+                parElem = parElem.parentElement;
+            }
+            // Calculate the relative position of the clicked object to the first positioned ancestor of the keyboard div.
+            let xClickRelToAnces = xClick - xAnces;
+            let yClickRelToAnces = yClick - yAnces;
+            // Calculate the final position of the keyboard div (we'll use "position: absolute;").
+            let xOffset = -250;
+            let yOffset = +50;
+            if (xClick > (widthView / 2)) {
+                let xSuperOffset = (-1) * (600 - 250) * (xClick - (widthView / 2)) / (widthView / 2);
+                xOffset += xSuperOffset;
+            }
+            let xFinal = xClickRelToAnces + xOffset;
+            let yFinal = yClickRelToAnces + yOffset;
+            // ***
+            keybDiv.style.position = 'absolute';
+            keybDiv.style.top = yFinal.toString() + 'px';
+            keybDiv.style.left = xFinal.toString() + 'px';
+        } else {
+            // We do not know the cause of the visibility change.
+            keybDiv.style.position = 'absolute';
+            keybDiv.style.top = 'auto';
+            keybDiv.style.left = 'auto';
+        }
+    } else {
+        keybDiv.style.position = 'absolute';
+        keybDiv.style.top = '-5000px';
+    }
+
+}
+
+
+
+// id - Id of the div with a particular row of keys.
+// randSize - Width (and height) of an ordinary key.
+function changeSizeRow(id, randSize) {
+    const row = document.getElementById(id);
+    let len = row.childNodes.length;
+    let keyNumber = 0;
+    // 14 keys in row #1, but "backspace" is twice as wide as the others. Therefore 15 * randSize.
+    // Plus:
+    // 26 = 13 * 2. 14 keys means 13 gaps, 2 pixels each.
+    let rowWidth = 15 * randSize + 26;
+    // ***
+    let sizeW = 0;
+    let row2left = 0;
+    let row3left = 0;
+    let row4left = 0;
+    let row5left = 0;
+    // ***
+    for (let i = 0; i < len; i++) {
+        // AGW-546
+        //if ((!row.childNodes[i].className || (row.childNodes[i].className.indexOf('key') == -1 && row.childNodes[i].className.indexOf('special') == -1) && row.childNodes[i].className.indexOf('inactive') == -1) && row.childNodes[i].className != 'lock') {
+        if (
+               // Either the element has no CSS class set.
+               //( row.childNodes[i].className.length == 0 )
+               // It may even happen that className is not defined at all for a particular element.
+               ( ! row.childNodes[i].className )
+               ||
+               // Or it has a class (classes), but its class is none of the following.
+               (
+                   ! (
+                       // An ordinary key (e.g. q w e r t y etc.).
+                       ( row.childNodes[i].className.indexOf('key') >= 0 )
+                       ||
+                       // A special key such as "backspace".
+                       ( row.childNodes[i].className.indexOf('special') >= 0 )
+                       ||
+                       // An inactive key. Don't understand its purpose.
+                       // Maybe because of the layout and formatting. THIS IS FOR SURE!!!
+                       ( row.childNodes[i].className.indexOf('inactive') >= 0 )
+                       ||
+                       // A "locked" key. This class is not used any longer. Keeping for historical reasons only.
+                       ( row.childNodes[i].className === 'lock' )
+                     )
+               )
+            ) {
+            continue;
+        }
+        sizeW = randSize;
+        if (id === 'keyb_row1' && keyNumber === 13) {
+            // Row #1, key #13 (zero-based) - it's "backspace".
+            // The key "Back".
+            sizeW = 2 * randSize;
+        }
+        if (id === 'keyb_row2' && keyNumber === 0) {
+            // Row #2, key #0 (zero-based) - it's an "inactive" invisible key to move the others to the right.
+            // The key "q" (row #2, key #1) is a bit right-shifted compared to the first row.
+            // This invisible key is half the size of an ordinary key.
+            sizeW = Math.floor(0.5 * randSize);
+            row2left = sizeW;
+        }
+        if (id === 'keyb_row2' && keyNumber === 14) {
+            // Row #2, key #14 (zero-based) - it's another "inactive" invisible key.
+            // This is because we want the whole of row #2 be as wide as row #1.
+            // In this row, we have 13 ordinary keys. Thus 13 * randSize.
+            // Plus two invisible keys. One is of size row2left.
+            // Altogether 15 keys, therefore 14 gaps, 2 pixels each. Thus 14 * 2 = 28.
+            sizeW = rowWidth - (13 * randSize + 28) - row2left;
+        }
+
+        if (id === 'keyb_row3' && keyNumber === 0) {
+            // Row #3, key #0 (zero-based) - it's "capslock".
+            // The key "Lock".
+            // The "capslock" is twice as wide as other keys.
+            sizeW = 2 * randSize;
+            row3left = sizeW;
+        }
+        if (id === 'keyb_row3' && keyNumber === 12) {
+            // Row #3, key #12 (zero-based) - it's another "inactive" invisible key.
+            // Again, for justification purposes.
+            // In this row, we have 11 ordinary keys, one "Lock" and one invisible.
+            // Thus 11 * randSize. The size of the "Lock" key is stored in row3left.
+            // Altogether there are 13 keys. 12 gaps. 12 * 2 = 24.
+            sizeW = rowWidth - (11 * randSize + 24) - row3left;
+        }
+        if (id === 'keyb_row4' && keyNumber === 0) {
+            // Row #4, key #0 (zero-based) - it's the "left shift".
+            // The left "Shift" key.
+            // The "shift" is twice and a half of an ordinary key.
+            sizeW = Math.floor(2.5 * randSize);
+            row4left = sizeW;
+        }
+        if (id === 'keyb_row4' && keyNumber === 11) {
+            // Row #4, key #11 (zero-based) - it's the "right shift".
+            // The right "Shift" key.
+            // In this row, there are 10 ordinary keys (10 * randSize) and two "shifts".
+            // The width of the left shift is stored in row4left.
+            // 12 keys altogether, 11 gaps. Thus 11 * 2 = 22 pixels for gaps.
+            sizeW = rowWidth - (10 * randSize + 22) - row4left;
+        }
+        if (id === 'keyb_row5' && keyNumber === 0) {
+            // Row #5, key #0 (zero-based) - it's an "inactive" invisible key to move the others to the right.
+            sizeW = 4 * randSize;
+            row5left = sizeW;
+        }
+        if (id === 'keyb_row5' && keyNumber === 1) {
+            // Row #5, key #11 (zero-based) - it's the "space".
+            sizeW = 8 * randSize;
+        }
+        row.childNodes[i].style.width = sizeW + 'px';
+        row.childNodes[i].style.height = randSize + 'px';
+        row.childNodes[i].style.lineHeight = randSize + 'px';
+        keyNumber++
+    }
+}
+
+
+
+// size - Width (and height) of an ordinary key.
+// The whole keyboard has a width of 13 ordinary keys and one "double-width" key. Plus gaps in between, 2 pixels each.
+// Altogether 14 keys and 13 gaps.
+// Therefore the width shall be: (13 + 2) * size + 13 * 2 pixels.
+// The height is easy: 4 rows (of "size" pixels in height) and 3 gaps (2 pixels in height).
+// The height shall be: 4 * size + 3 * 2 pixels.
+// ***
+// The main div (keyboardMain) has 640 * 300 pixels.
+// The "client" area is 600 * 280 pixels.
+// ***
+// Correct values example:    555 * 116, actually (85 + 555) * (2 + 116) = 640 * 118
+// Correct values example:    543 * 252, actually (97 + 543) * (86 + 252) = 640 * 338
+// Incorrect values example:  600 * 124, actually (40 + 600) * (59 + 124) = 640 * 183
+// ***
+// Incorrect values example:  482 * 108, actually (146 + 482) * (46 + 108) = 628 * 154
+function changeKeyboardPosition(size) {
+    const xShiftCoefficient = Math.random();
+    const yShiftCoefficient = Math.random();
+
+    // AGW-546
+    //var xMaxShift = (600 - ((size * 14) + 40));
+    //var yMaxShift = (280 - ((size * 4) + 10));
+    let xMaxShift = (600 - (((13 + 2) * size) + (13 * 2)));
+    //                      5 rows       4 spaces between rows by 3px
+    let yMaxShift = (280 - ((5 * size) + (4 * 3)));
+
+    let xShift = Math.floor(xShiftCoefficient * xMaxShift);
+    let yShift = Math.floor(yShiftCoefficient * yMaxShift);
+
+    // if browser is firefox and keyboard row would overflow outer div, set marginLeft=0px to prevent that
+    if (ItsFirefox) {
+        const row = document.getElementById('keyb_row1');
+        const width = row.offsetWidth;
+        if ((xShift + width) > 570) {
+            xShift = 0;
+        }
+    }
+    KeyboardElement.style.marginLeft = xShift + 'px';
+    KeyboardElement.style.marginTop = yShift + 'px';
+}
+
+
+
+function randomPosition(size) {
+    changeSizeRow('keyb_row1', size);
+    changeSizeRow('keyb_row2', size);
+    changeSizeRow('keyb_row3', size);
+    changeSizeRow('keyb_row4', size);
+    changeSizeRow('keyb_row5', size);
+
+    changeKeyboardPosition(size);
+}
+
+
+
+function getPasswordElement() {
+    const radioElement = FormElement.selectionRadio;
+
+    if (!radioElement || radioElement[0].checked) {
+        return document.getElementById("Ecom_Password");
+    } else if (radioElement[1].checked) {
+        return document.getElementById("NewPassword1");
+    } else if (radioElement[2].checked) {
+        return document.getElementById("NewPassword2");
+    }
+}
+
+
+
+function checkRadioElements(position) {
+    const radioElement = FormElement.selectionRadio;
+
+    if (radioElement) {
+        for (let i = 0; i < 3; i++) {
+            radioElement[i].checked = false;
+        }
+        radioElement[position].checked = true;
+    }
+}
+
+
+
+function setKey(keyNumber) {
+    let password = getPasswordElement();
+
+    let letters = LOWERCASE_LETTERS;
+    if ((clickedCapsLock && !clickedShift) || (!clickedCapsLock && clickedShift)) {
+        letters = UPPERCASE_LETTERS;
+    }
+    let newLetter = letters.charAt(keyNumber)
+    if (newLetter === ' ' && keyNumber !== '47') {
+        newLetter = '';
+    }
+
+    let inputEvent = new InputEvent('input', { bubbles: true });
+    // Dispatch input event
+    password.value += newLetter;
+    password.dispatchEvent(inputEvent);
+
+    if (clickedShift) {
+        clickShift();
+    }
+
+    if (window.checkPasswords) {
+        checkPasswords(password);
+    } else {
+        if (window.validateLogin) {
+            validateLogin();
+        }
+    }
+
+    if (password.value ){
+        password.classList.add('form-control--not-empty');
+    } else{
+        password.classList.remove('form-control--not-empty');
+    }
+}
+
+
+
+function changeKeysRow(id, letters, offset) {
+    const row = document.getElementById(id);
+    let len = row.childNodes.length;
+    let keyNumber = offset;
+    for (let i = 0; i < len; i++) {
+        if (!row.childNodes[i].className || (row.childNodes[i].className.indexOf('key') === -1)) {
+            continue;
+        }
+        let letter = letters.charAt(keyNumber);
+        if (letter === '&') {
+            letter = '&amp;';
+        }
+        row.childNodes[i].innerHTML = letter;
+        if (letter === " ") {
+            row.childNodes[i].className += " disabled";
+        } else {
+            row.childNodes[i].className = row.childNodes[i].className.replace(" disabled", "");
+        }
+        keyNumber++;
+    }
+}
+
+
+
+function changeKeys() {
+    let letters;
+    if ((clickedCapsLock && !clickedShift) || (!clickedCapsLock && clickedShift)) {
+        letters = UPPERCASE_LETTERS;
+    } else {
+        letters = LOWERCASE_LETTERS;
+    }
+    changeKeysRow('keyb_row1', letters, 0);
+    changeKeysRow('keyb_row2', letters, 13);
+    changeKeysRow('keyb_row3', letters, 26);
+    changeKeysRow('keyb_row4', letters, 37);
+}
+
+
+
+function clickCapsLock() {
+    clickedCapsLock = !clickedCapsLock;
+    changeKeys();
+    if (clickedCapsLock) {
+        Row3CapsLock.className += ' active';
+    } else {
+        Row3CapsLock.className = Row3CapsLock.className.replace(" active", "");
+    }
+}
+
+
+
+function clickShift() {
+    clickedShift = !clickedShift;
+    changeKeys();
+    if (clickedShift) {
+        Row4ShiftLeft.className += ' active';
+        Row4ShiftRight.className += ' active';
+    } else {
+        Row4ShiftLeft.className = Row4ShiftLeft.className.replace(" active", "");
+        Row4ShiftRight.className = Row4ShiftRight.className.replace(" active", "");
+    }
+}
+
+
+
+function clickBackspace() {
+    let password = getPasswordElement();
+    let length = password.value.length;
+    password.value = password.value.substr(0, length - 1);
+
+    if (window.checkPasswords) {
+        checkPasswords(password);
+    } else {
+        if (window.validateLogin) {
+            validateLogin();
+        }
+    }
+
+    if (!password.value ){
+        password.classList.remove('form-control--not-empty');
+    }
+}
+
+
+
+function registerKeyboardEvents() {
+    const keyboardClose = document.getElementById('keyboardClose');
+    if (keyboardClose == null) {
+        return;
+    }
+    keyboardClose.onclick = changeKeyboardVisibility;
+    document.getElementById('keyboardHelp').onclick = function() {
+        window.open('https://info.' + getDomainName() + '/info/cs/help/1.5.text.html#1_5_2_1', '_blank');
+        return false;
+    };
+    document.getElementById('row1Backspace').onclick = clickBackspace;
+    Row3CapsLock.onclick = clickCapsLock;
+    Row4ShiftLeft.onclick = clickShift;
+    Row4ShiftRight.onclick = clickShift;
+
+    // Get all rows of keyboard
+    let children = KeyboardElement.children;
+    for (let i = 0; i < children.length; i++) {
+        let child = children[i];
+        let childrenOfChild = child.children;
+        if (childrenOfChild) {
+            for (let j = 0; j < childrenOfChild.length; j++) {
+                let grandchild = childrenOfChild[j];
+                if (grandchild.id && grandchild.id.search('keyN') === 0) {
+                    grandchild.onclick = function() {
+                        let code = this.id.substr('keyN'.length);
+                        setKey(code);
+                    };
+                }
+            }
+        }
+    }
+}
+
+
+
+function detectBrowser() {
+    const userAgent = navigator.userAgent;
+    if (userAgent.indexOf("Edg") > -1) {
+        return "Microsoft Edge";
+    } else if (userAgent.indexOf("Chrome") > -1) {
+        return "Chrome";
+    } else if (userAgent.indexOf("Firefox") > -1) {
+        return "Firefox";
+    } else if (userAgent.indexOf("Safari") > -1) {
+        return "Safari";
+    } else if (userAgent.indexOf("Opera") > -1) {
+        return "Opera";
+    } else {
+        return "Unknown";
+    }
+}

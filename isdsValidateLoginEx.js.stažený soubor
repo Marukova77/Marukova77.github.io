@@ -1,0 +1,475 @@
+/*
+ * Copyright (c) 2018 NEWPS.CZ s.r.o.
+ *
+ * Zhotovitel, NEWPS.CZ, nenese odpovednost za vady zpusobene
+ * neautorizovanym zasahem do zdrojoveho kodu.
+ *
+ */
+
+
+window.onload = validateLoginOnLoad;
+
+
+
+// Current login form status.
+// Since the submit event may not be the last event triggered when the form is submitted (i.e. keyup), we need to persist the state of form submission for any subsequent validateLogin() call.
+let wasLoginSubmitted = false;
+
+const EcomUserIdElement = document.getElementById('Ecom_User_ID');
+const EcomPasswordElement = document.getElementById('Ecom_Password');
+const EcomCaptchaElement = document.getElementById('Ecom_Captcha');
+const EcomButtonLoginElement = document.getElementById('Ecom_Button_Login');
+const NewPassword1Element = document.getElementById('NewPassword1');
+const NewPassword2Element = document.getElementById('NewPassword2');
+const SmsAnchorButtonElement = document.getElementById('smsButton');
+const CloseButtonElement = document.getElementById('closeButton');
+const EcomHotpElement = document.getElementById('Ecom_Hotp');
+const EcomHotp2Element = document.getElementById('Ecom_Hotp2');
+const EcomTotpElement = document.getElementById('Ecom_Totp');
+const CreateFoElement = document.getElementById("createFo");
+const CreatePfoElement = document.getElementById("createPfo");
+
+
+
+function addEventListenerConditional(elementId, event, listener, useCapture) {
+    let elementObject = document.getElementById(elementId);
+    if (elementObject) {
+        elementObject.addEventListener(event, listener, useCapture);
+    }
+}
+
+
+
+
+function addEventListenerButtonLink(buttonLink) {
+    buttonLink.addEventListener('click', () => {
+        let isActive = buttonLink.getAttribute('data-link-is-active');
+        let ref = buttonLink.getAttribute('data-link-ref');
+        let newWindow = buttonLink.getAttribute('data-link-new-window');
+
+        if (isActive === null || isActive === 'true') {
+            if (newWindow === 'true') {
+                window.open(ref);
+            } else {
+                window.location = ref;
+            }
+        }
+        return false;
+    }, false);
+}
+
+
+
+function addEventListenerInfoIcon(infoIcon) {
+    let tooltipId = infoIcon.getAttribute('data-tooltip');
+    let tooltip = document.getElementById(tooltipId);
+    let popperInstance = Popper.createPopper(infoIcon, tooltip, {
+        modifiers: [
+            { name: 'offset', options: { offset: [0, 8] } },
+        ],
+    });
+
+    function listenerShow() {
+        tooltip.setAttribute('data-show', '');
+
+        // We need to tell Popper to update the tooltip position
+        // after we show the tooltip, otherwise it will be incorrect
+        popperInstance.update();
+    }
+
+    function listenerHide() {
+        tooltip.removeAttribute('data-show');
+    }
+
+    infoIcon.addEventListener('blur', listenerHide);
+    infoIcon.addEventListener('focus', listenerShow);
+    infoIcon.addEventListener('mouseenter', listenerShow);
+    infoIcon.addEventListener('mouseleave', listenerHide);
+}
+
+
+
+function addEventListenerPatternMismatchErrorFromTitle(input) {
+    input.addEventListener('invalid', function () { if (input.validity.patternMismatch) { input.setCustomValidity(input.title) } }, false);
+    input.addEventListener('input', function () { input.setCustomValidity('') }, false);
+}
+
+
+
+function addEventListenerSelectUserModal(trigger, type) {
+    trigger.setAttribute("data-id", "modal");
+    new GovModal(
+        trigger,
+        {
+            "events": {
+                "onOpen": function (modalElement, hideModal) {
+                    let createFo2 = modalElement.querySelector("#createFo2");
+                    let createPfo2 = modalElement.querySelector("#createPfo2");
+                    let foDialogText = modalElement.querySelector("#foDialogText");
+                    let pfoDialogText = modalElement.querySelector("#pfoDialogText");
+                    let close = modalElement.querySelector(".gov-modal__close");
+                    let yes = modalElement.querySelector("#yesButtonOnDialog")
+                    let no = modalElement.querySelector("#noButtonOnDialog");
+                    let form = modalElement.querySelector("#createDataboxForm");
+                    let uri = modalElement.querySelector("#uri");
+
+
+                    var xmlHttpRequest = new XMLHttpRequest();
+                    xmlHttpRequest.onreadystatechange = function() {
+                        if (this.readyState != 4) {
+                            return;
+                        }
+                        if (this.status != 200) {
+                            console.log('invalid readystate: %s, status: %s', this.readyState, this.status);
+                            return;
+                        }
+
+                        if (this.responseText.indexOf('gov-alert__content') > 0) {
+                            hideModal();
+                            modalElement.querySelector("#errorPlaceholder").innerHTML = this.responseText;
+                        } else {
+                            modalElement.querySelector("#digitalInfo").innerHTML = this.responseText;
+                        }
+                    };
+                    xmlHttpRequest.open('POST', '/as/createDatabox', true);
+                    xmlHttpRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                    var data = 'uri='+encodeURIComponent(uri.value);
+                    data += '&fo2=' + (type === "fo" ? "true" : "false");
+                    data += '&pfo2=' + (type === "fo" ? "false" : "true");
+                    data += '&step=krok1';
+                    xmlHttpRequest.send(data);
+
+                    createFo2.value = type === "fo" ? "true" : "false";
+                    createPfo2.value = type === "fo" ? "false" : "true";
+
+                    foDialogText.style.display = type === "fo" ? "block" : "none";
+                    pfoDialogText.style.display = type === "fo" ? "none" : "block";
+
+                    close.tabIndex="-1";
+                    yes.tabIndex="1";
+                    no.tabIndex="2";
+
+                    no.addEventListener("click", hideModal);
+                    yes.addEventListener("click", function(event) {
+                        yes.disabled = true;
+
+                        hideModal(event);
+
+                        let hideOnSubmit = document.getElementsByClassName("js-hide-on-submit");
+                        for (let i = 0; i < hideOnSubmit.length; i++) {
+                            hideOnSubmit[i].style.display = "none";
+                        }
+                        let showOnSubmit = document.getElementsByClassName("js-show-on-submit");
+                        for (let i = 0; i < showOnSubmit.length; i++) {
+                            showOnSubmit[i].style.display = "block";
+                        }
+
+                        form.submit();
+                    });
+                }
+            }
+        }
+    );
+}
+
+
+
+function addEventListenerVcenter(vcenter) {
+    window.addEventListener('resize', function() {centerVertically(vcenter);}, true);
+}
+
+
+
+function attachEventToPassword() {
+    // Try to fix the enable/disable of the submit button for use cases with the browser's password manager.
+    EcomPasswordElement.addEventListener('input', function() {validateLogin();}, false);
+
+    document.getElementById('keyboard1').addEventListener('click', function() {changeKeyboardVisibility(null,this); return false;}, false);
+
+    registerKeyboardEvents();
+}
+
+
+
+function attachEventToPasswordTS953(passwordId, togglePasswordId, keyboardId, selectionRadioIndex) {
+    document.getElementById(togglePasswordId).addEventListener('click', function() {togglePassword(passwordId); return false;}, false);
+    document.getElementById(keyboardId).addEventListener('click', function() {changeKeyboardVisibility(selectionRadioIndex, this); return false;}, false);
+}
+
+
+
+function registerCommonEvents() {
+    validateLogin();
+    EcomPasswordElement.focus();
+
+    document.getElementById('IDPLogin').addEventListener('submit', function() {return validateLogin();}, false);
+
+    attachEventToPassword();
+}
+
+function validateLoginOnLoad() {
+    let aNewWindows = document.getElementsByClassName('js-a-new-window');
+    for (let i = 0; i < aNewWindows.length; i++) {
+        aNewWindows[i].addEventListener('click', function(event) {window.open(this.href); event.preventDefault(); return false;}, false);
+    }
+    let buttonLinks = document.getElementsByClassName('js-button-link');
+    for (let i = 0; i < buttonLinks.length; i++) {
+        addEventListenerButtonLink(buttonLinks[i]);
+    }
+    // AGW-1121: Workaround Safari on iOS not displaying title tooltips regarding the required pattern.
+    let inputs = document.getElementsByClassName('js-pattern-mismatch-error-from-title');
+    for (let i = 0; i < inputs.length; i++) {
+        addEventListenerPatternMismatchErrorFromTitle(inputs[i]);
+    }
+    let vCenters = document.getElementsByClassName('js-vcenter');
+    for (let i = 0; i < vCenters.length; i++) {
+        centerVertically(vCenters[i]);
+        addEventListenerVcenter(vCenters[i]);
+    }
+    let infoIcons = document.getElementsByClassName('info-icon');
+    for (let i = 0; i < infoIcons.length; i++) {
+        addEventListenerInfoIcon(infoIcons[i]);
+    }
+    document.addEventListener('keyup', event => {
+        if (event.key === 'Escape') {
+            let clickOnEscIfClasses = document.getElementsByClassName('js-click-on-esc-if-class');
+            for (let i = 0; i < clickOnEscIfClasses.length; i++) {
+                let ifClass = clickOnEscIfClasses[i].getAttribute('data-click-on-esc-if-class');
+
+                if (clickOnEscIfClasses[i].classList.contains(ifClass)) {
+                    clickOnEscIfClasses[i].click();
+                }
+            }
+        }
+    });
+
+    const template = document.getElementsByTagName('body')[0].id;
+    if (template === 'login-redesign') {
+        if (EcomUserIdElement) {
+            EcomUserIdElement.focus();
+        }
+        if (EcomPasswordElement) {
+            attachEventToPasswordTS953('Ecom_Password', 'togglePassword', 'keyboard1', null);
+            registerKeyboardEvents();
+        }
+        // ***
+        addEventListenerConditional('sms_button', 'click', function(event) {smsClick(event, document.forms.IDPLogin); enableSmsButton(); return false;}, false);
+    } else if (template === 'login-servis') {
+        validateLogin();
+        setTimeout(validateLogin, 500);
+        if (EcomUserIdElement) {
+            EcomUserIdElement.focus();
+        }
+        addEventListenerConditional('IDPLogin', 'submit', function() {wasLoginSubmitted=true;return validateLogin();}, false);
+        addEventListenerConditional('Ecom_User_ID', 'keyup', function() {validateLogin();}, false);
+        if (EcomPasswordElement) {
+            attachEventToPassword();
+        }
+        // ***
+        addEventListenerConditional('captcha', 'click', function(event) {captchaClick(event);}, false);
+        addEventListenerConditional('Ecom_Captcha', 'keyup', function() {validateLogin();}, false);
+    } else if (template === 'register-password-login') { // reregister-password-login-first only
+        attachEventToPasswordTS953('Ecom_Password', 'togglePassword1', 'keyboard1', 0);
+        attachEventToPasswordTS953('NewPassword1', 'togglePassword2', 'keyboard2', 1);
+        attachEventToPasswordTS953('NewPassword2', 'togglePassword3', 'keyboard3', 2);
+
+        let eventListeners = ["blur", "focus", "input", "keyup", "keydown"];
+        eventListeners.forEach(listener => {
+            EcomPasswordElement.addEventListener(listener,function(event) {checkPasswords(event.target, null);}, false);
+            // ***
+            NewPassword1Element.addEventListener(listener, function() {checkPasswords(null, null);}, false);
+            // ***
+            NewPassword2Element.addEventListener(listener, function() {checkPasswords(null, null);}, false);
+        });
+        registerKeyboardEvents();
+
+        // Overrides checkPasswords from checkPasswordEx.js
+        window.checkPasswords = function (event) {
+            if (event != null && event === CPEOldPassword && (NewPassword1Element.value.length === 0 || NewPassword2Element.value.length === 0)) {
+                return false;
+            }
+            return checkPasswordsTS955();
+        }
+    } else if (template === 'register-calc-login') {
+        registerCommonEvents();
+        EcomHotpElement.addEventListener('keyup', function() {validateLogin();}, false);
+        EcomHotp2Element.addEventListener('keyup', function() {validateLogin();}, false);
+    } else if (template === 'register-certificate-login') {
+        registerCommonEvents();
+    } else if (template === 'register-sms-login') {
+        registerCommonEvents();
+        EcomTotpElement.addEventListener('keyup', function() {validateLogin();}, false);
+        SmsAnchorButtonElement.addEventListener('click', function (event) {smsClick(event, document.forms[0], 'registerSms');return false;}, false);
+    } else if (template === 'select-user') {
+        if (CreateFoElement) {
+            addEventListenerSelectUserModal(CreateFoElement, "fo");
+        }
+        if (CreatePfoElement) {
+            addEventListenerSelectUserModal(CreatePfoElement, "pfo");
+        }
+    } else if (template === 'unregister-calc-login') {
+        registerCommonEvents();
+        EcomHotpElement.addEventListener('keyup', function() {validateLogin();}, false);
+    } else if (template === 'unregister-certificate-login') {
+        registerCommonEvents();
+    } else if (template === 'unregister-sms-login') {
+        registerCommonEvents();
+        EcomTotpElement.addEventListener('keyup', function() {validateLogin();}, false);
+        SmsAnchorButtonElement.addEventListener('click', function (event) {smsClick(event, document.forms[0], 'unregisterSms');return false;}, false);
+    } else if (template === 'register-ext-ws-failure') {
+        CloseButtonElement.addEventListener('click', function() {window.close();}, false);
+    } else if (template === 'verify-password') {
+        registerCommonEvents();
+        if (EcomTotpElement != null) {
+            EcomTotpElement.addEventListener('keyup', function() {validateLogin();}, false);
+        }
+        if (SmsAnchorButtonElement != null) {
+            SmsAnchorButtonElement.addEventListener('click', function (event) {smsClick(event, document.forms[0], 'verifySms');return false;}, false);
+        }
+        if (EcomHotpElement != null) {
+            EcomHotpElement.addEventListener('keyup', function() {validateLogin();}, false);
+        }
+    }
+}
+
+
+function isFieldEmpty(loginInput) {
+    let fieldEmpty = loginInput.value.length === 0;
+    let backgroundColor = window.getComputedStyle(loginInput, null).getPropertyValue("background-color");
+    let hasEmptyColor = backgroundColor !== "rgb(250, 255, 189)" && backgroundColor !== "rgb(232, 240, 254)";
+    let hasAutofillClass = matches(loginInput, ":-webkit-autofill");
+    //console.log('Field ' + loginInput.id + ', fieldEmpty:' + fieldEmpty + ', hasEmptyColor:' + hasEmptyColor + ', hasAutofillClass: '+ hasAutofillClass);
+    return fieldEmpty && hasEmptyColor && !hasAutofillClass;
+}
+
+// I determine if the given node matches the given selector.
+function matches( node, selector ) {
+
+    // Most modern browsers support the ".matches" method. However, IE9+ uses a
+    // non-standard method name. As such, we can fall-back to the IE version when
+    // the standard one doesn't exist and that should cover all the modern
+    // browsers that are in use.
+    // --
+    // READ MORE: https://developer.mozilla.org/en-US/docs/Web/API/Element/matches
+    let nativeMatches = ( node.matches || node.msMatchesSelector );
+
+    // CAUTION: If an invalid pseudo-selector is used in Firefox or IE, the
+    // browser will throw a SyntaxError, "is not a valid selector". It will do
+    // the same for .querySelector() as well, just an FYI.
+    try {
+
+        return( nativeMatches.call( node, selector ) );
+
+    } catch ( error ) {
+
+        // In the case of an error, we're going to assume it's a pseudo-selector
+        // issue and NOT a general support issue (since we don't care about
+        // really old browsers).
+        return( false );
+
+    }
+
+}
+
+
+function checkIfAutofilled(loginInput) {
+    if (loginInput != null && !isFieldEmpty(loginInput)) {
+        let placeholderElement = loginInput.parentNode;
+        let alreadyHasBeenSmall = placeholderElement.className.indexOf('input__placeholder--focus') >= 0;
+        if (!alreadyHasBeenSmall) {
+            placeholderElement.className += ' input__placeholder--focus';
+        }
+    }
+}
+function validateLogin() {
+
+    let bIsValidated = true;
+    // Experimental fix of a bug-aka-feature in Chrome (autofilled fields seem to be empty).
+    if (EcomUserIdElement != null && isFieldEmpty(EcomUserIdElement)) {
+        bIsValidated = false;
+    }
+    // Experimental fix of a bug-aka-feature in Chrome (autofilled fields seem to be empty).
+    else if (EcomPasswordElement != null && isFieldEmpty(EcomPasswordElement)) {
+        bIsValidated = false;
+    }
+    else if (EcomCaptchaElement != null && EcomCaptchaElement.value.length === 0) {
+        bIsValidated = false;
+    }
+    else if (EcomHotpElement != null && EcomHotpElement.value.length === 0) {
+        bIsValidated = false;
+    }
+    else if (EcomHotp2Element != null && EcomHotp2Element.value.length === 0) {
+        bIsValidated = false;
+    }
+    if (EcomTotpElement != null && EcomTotpElement.value.length === 0) {
+        if (!bIsValidated) {
+            disableSmsButton();
+        } else {
+            enableSmsButton();
+        }
+
+        bIsValidated = false;
+    }
+
+    if (EcomUserIdElement != null && EcomUserIdElement.getAttribute('type') !== 'hidden') {
+        // only do this on the login page, not when user is prefilled
+        checkIfAutofilled(EcomUserIdElement);
+    }
+
+    checkIfAutofilled(EcomPasswordElement);
+
+    if (EcomButtonLoginElement != null) {
+       // console.log(new Date().toISOString().split("T")[1] + " validateLogin bIsValidated: " + bIsValidated +
+       //     ", EcomUserIdElement: " + (EcomUserIdElement != null && isFieldEmpty(EcomUserIdElement)) +
+       //     ", EcomPasswordElement: " + (EcomPasswordElement != null && isFieldEmpty(EcomPasswordElement)) +
+       //     ", EcomButtonLoginElement.disabled: " + EcomButtonLoginElement.disabled + ", EcomButtonLoginElement.className: " + EcomButtonLoginElement.className);
+        if (bIsValidated && !wasLoginSubmitted) {
+            EcomButtonLoginElement.disabled = false;
+            EcomButtonLoginElement.className = EcomButtonLoginElement.className.replace(" btn-disabled", "");
+        } else {
+            if ( ! EcomButtonLoginElement.disabled ) {
+                EcomButtonLoginElement.disabled = true;
+                EcomButtonLoginElement.className += " btn-disabled";
+            }
+        }
+    }
+
+    if (wasLoginSubmitted && bIsValidated && document.getElementById('sms_button') != null) {
+        disableSmsButton();
+    }
+
+    return(bIsValidated);
+}
+
+function togglePassword(id) {
+    const element = document.getElementById(id);
+    // toggle the type attribute
+    const type = element.getAttribute("type") === "password" ? "text" : "password";
+    element.setAttribute("type", type);
+}
+
+function centerVertically(element) {
+    let marginMin = element.getAttribute("data-js-vcenter-margin-min");
+    if (marginMin === null) {
+        if (element.style.marginTop === "") {
+            marginMin = "0";
+        } else if (element.style.marginTop.endsWith("px")) {
+            marginMin = element.style.marginTop.substring(0, element.style.marginTop.length - 2);
+        } else {
+            throw Error("Unsupported margin-top: " + element.style.marginTop);
+        }
+        element.setAttribute("data-js-vcenter-margin-min", marginMin);
+    }
+    marginMin = parseInt(marginMin);
+
+    // k vysce hlavicky pripocteme jeste jeji pozici od vrchu obrazovky
+    let parentStyle = element.parentElement.currentStyle || window.getComputedStyle(element.parentElement);
+    let parentTop = element.parentElement.offsetTop + parseInt(parentStyle.paddingTop);
+
+    // vypocitam vzdalenost od vrchu obrazovky pro vycentrovany dialog
+    let centerTop = (window.innerHeight - element.offsetHeight) / 2;
+
+    // nastavim margin dialogu tak, aby byl vycentrovany
+    let marginTop = centerTop - parentTop;
+    element.style.marginTop = Math.max(marginTop, marginMin) + "px";
+}

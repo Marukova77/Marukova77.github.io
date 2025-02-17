@@ -1,0 +1,148 @@
+/*
+ * Copyright (c) 2012 Novell Professional Services.
+ *
+ * Zhotovitel, Novell Professional Services, nenese odpovednost za vady zpusobene
+ * neautorizovanym zasahem do zdrojoveho kodu.
+ */
+div.keyboardInvisible {
+    position: absolute;
+    top: -5000px
+}
+
+.pop-up .content .col {
+    overflow: inherit;
+}
+
+div.keyboardVisible {
+    position: absolute;
+    background-color: white;
+    border: 1px solid #d3d3d3;
+    padding: 5px;
+    width: 640px;
+    height: 300px;
+    z-index: 9;
+    text-align: right;
+
+    /* AGW-546 */
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12.8px;
+    letter-spacing: normal;
+}
+
+span#keyboardVisibility, span#keyboardClose {
+    color: #0064FF;
+    cursor: pointer;
+}
+
+a#keyboardHelp {
+    float: left;
+}
+
+
+.square.button.key {
+    margin-left: 0px;
+    margin-bottom: 3px;
+    color: #647382;
+    background-size: cover;
+
+    padding: 1px;
+    border-style: solid;
+    border-width: 1px;
+    display: inline-block;
+    vertical-align: middle;
+    text-align: center;
+}
+
+.square.button.key:hover {
+    background-position: 0 66%;
+}
+
+.button.grey.small.special:hover {
+    background-position: 0 50%;
+}
+
+.button.light.small.special:hover {
+    background-position: 0 33%;
+}
+
+.square.button.key:focus, .square.button.key:active {
+    background-position: 0 33%;
+}
+
+.button.grey.small.special:focus, .button.grey.small.special:active, .button.light.small.special:focus, .button.light.small.special:active {
+    background-position: 0 100%;
+}
+
+.button.grey.small.special.active {
+    background-position: 0 100%;
+    color: red;
+}
+
+.button.grey.small.special {
+    margin-left: 0px;
+    margin-bottom: 3px;
+    color: black;
+    font-weight: bold;
+    background-size: cover;
+    /* background-size: 100% 305%;  */
+    vertical-align: middle;
+
+    padding: 1px;
+    border-style: solid;
+    border-width: 1px;
+    display: inline-block;
+    text-align: center;
+}
+
+.button.light.small.special {
+    margin-left: 0px;
+    margin-bottom: 3px;
+    color: black;
+    font-weight: bold;
+    background-size: 100% 400%; 
+    vertical-align: middle;
+
+    padding: 5px;
+    border-style: solid;
+    border-width: 1px;
+    text-align: center;
+}
+
+/*.special {*/
+/*background-image: url(../images/layout/button-grey/button-grey-small-1.png);*/
+/*background-size: 100% 100%;*/
+/*display: inline-block;*/
+/*vertical-align: middle;*/
+/*padding-bottom: 3px;*/
+/*color: #647382;*/
+/*cursor: pointer;*/
+/*}*/
+
+div#keyboard div {
+    clear: both;
+    display: table;
+}
+
+div#keyboard {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.inactive {
+    display: inline-block;
+    vertical-align: middle;
+    margin-bottom: 3px;
+}
+
+div#keyboard div span.square.button.key.disabled {
+    /* background-position: 0 99%; */
+    cursor: default !important;
+}
+
+div#keyboard div span {
+    cursor: pointer;
+}
